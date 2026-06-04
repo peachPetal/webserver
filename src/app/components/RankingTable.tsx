@@ -1,17 +1,18 @@
 import { ArrowUpDown, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { Company } from '../data/companies';
 
-interface Company {
-  id: number;
-  name: string;
-  marketCap: number;
-  earnings: number;
-  revenue: number;
-  employees: number;
-  city: string;
-  category: string;
-  listingStatus: string;
-}
+// interface Company {
+//   id: number;
+//   name: string;
+//   marketCap: number;
+//   earnings: number;
+//   revenue: number;
+//   employees: number;
+//   city: string;
+//   category: string;
+//   listingStatus: string;
+// }
 
 interface RankingTableProps {
   companies: Company[];

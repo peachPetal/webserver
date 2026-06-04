@@ -1,14 +1,29 @@
-import { useParams, useNavigate } from 'react-router';
-import { useState } from 'react';
-import { companies } from '../data/companies';
-import { ArrowLeft, TrendingUp, DollarSign, Users, Building2 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts';
+import { useMemo } from 'react';
+import { Company } from '../data/companies';
+import { ArrowLeft, Building2 } from 'lucide-react';
+import {
+  ComposedChart,
+  Line,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  ReferenceDot,
+  AreaChart,
+  Area,
+} from 'recharts';
 
+// [Gemini 수정] useParams/useNavigate 라우터 방식 대신 props로 company와 onBack을 받는 방식으로 변경
 interface CompanyDetailProps {
+  company: Company;
+  onBack: () => void;
   isDarkMode: boolean;
 }
 
-type TabType = 'marketCap' | 'earnings' | 'revenue' | 'employees' | 'support' | 'financial';
+type TabType = 'hybrid' | 'marketCap' | 'earnings' | 'revenue' | 'employees' | 'support' | 'financial';
 
 interface SupportProgram {
   date: string;
@@ -16,27 +31,27 @@ interface SupportProgram {
   amount: number;
 }
 
-export function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const company = companies.find(c => c.id === Number(id));
-  const [activeTab, setActiveTab] = useState<TabType>('marketCap');
+export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDetailProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('hybrid');
 
-  if (!company) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
-        <div className="text-center">
-          <h2 className={`text-2xl mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>기업을 찾을 수 없습니다</h2>
-          <button
-            onClick={() => navigate('/')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            홈으로 돌아가기
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // [Gemini 수정] financialHistory + benefits 실제 데이터 기반 하이브리드 차트 데이터 생성
+  const hybridChartData = useMemo(() => {
+    if (!company.financialHistory) return [];
+    return [...company.financialHistory]
+      .sort((a, b) => (a.year + a.month).localeCompare(b.year + b.month))
+      .map((hist) => {
+        // 그래프의 특정 월과 진흥원 수혜내역 월이 완벽하게 교차하는 지점 스캐닝
+        const benefit = company.benefits?.find(b => b.year === hist.year && b.month === hist.month);
+        return {
+          name: `${hist.year}.${hist.month}`,
+          '시가총액(억)': Math.round(hist.marketCap / 100000000),
+          '매출액(억)': Math.round(hist.revenue / 100000000),
+          '당기순이익(억)': Math.round(hist.earnings / 100000000),
+          hasBenefit: !!benefit,
+          benefitName: benefit ? benefit.programName : '',
+        };
+      });
+  }, [company]);
 
   const formatCurrency = (value: number) => {
     if (value < 0) {
@@ -56,11 +71,11 @@ export function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
     return value.toLocaleString();
   };
 
-  const rank = companies
-    .sort((a, b) => b.marketCap - a.marketCap)
-    .findIndex(c => c.id === company.id) + 1;
-
-  const mockSupportPrograms: SupportProgram[] = [
+  const mockSupportPrograms: SupportProgram[] = company.benefits?.map(b => ({
+    date: `${b.year}-${b.month}`,
+    name: b.programName,
+    amount: b.amount ?? 0,
+  })) ?? [
     { date: '2024-02', name: '강원바이오 혁신성장 지원사업', amount: 500000000 },
     { date: '2024-05', name: 'R&D 세액공제', amount: 300000000 },
     { date: '2024-09', name: '수출확대 지원금', amount: 250000000 },
@@ -87,6 +102,7 @@ export function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
   };
 
   const tabs = [
+    { id: 'hybrid' as TabType, label: '하이브리드 분석' },
     { id: 'marketCap' as TabType, label: '시가총액' },
     { id: 'earnings' as TabType, label: '영업이익' },
     { id: 'revenue' as TabType, label: '매출액' },
@@ -143,13 +159,39 @@ export function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
     return null;
   };
 
+  const HybridTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const entry = hybridChartData.find(d => d.name === label);
+      return (
+        <div className={`p-3 rounded-lg shadow-lg border text-xs ${
+          isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+        }`}>
+          <p className="font-bold mb-1">{label}</p>
+          {payload.map((p: any) => (
+            <p key={p.name} style={{ color: p.color }}>{p.name}: {p.value?.toLocaleString()}억</p>
+          ))}
+          {entry?.hasBenefit && (
+            <p className="text-green-400 mt-1 pt-1 border-t border-gray-600">
+              🎯 {entry.benefitName}
+            </p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // companies 배열이 없으므로 rank는 간략 처리
+  const rank = '-';
+
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
       <div className={`border-b ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
+          {/* [Gemini 수정] navigate('/') 대신 onBack() 호출 */}
           <button
-            onClick={() => navigate('/')}
+            onClick={onBack}
             className={`flex items-center gap-2 text-sm mb-4 transition-colors ${
               isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
             }`}
@@ -240,6 +282,59 @@ export function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
         </div>
 
         {/* Tab Content */}
+
+        {/* [Gemini 수정] 하이브리드 분석 탭: financialHistory + benefits 교차 ComposedChart */}
+        {activeTab === 'hybrid' && (
+          <div className={`p-6 rounded-lg border ${
+            isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className={`text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {company.name} 하이브리드 시계열 분석
+              </h2>
+              <span className={`text-xs px-2 py-1 rounded ${isDarkMode ? 'bg-emerald-900 text-emerald-300' : 'bg-emerald-100 text-emerald-700'}`}>
+                🎯 = 진흥원 수혜 시점
+              </span>
+            </div>
+            {hybridChartData.length === 0 ? (
+              <p className={`text-sm text-center py-10 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                재무 이력 데이터가 없습니다. (financialHistory 필드 필요)
+              </p>
+            ) : (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={hybridChartData}>
+                    <CartesianGrid stroke={isDarkMode ? '#1f1f23' : '#e5e7eb'} />
+                    <XAxis dataKey="name" stroke={isDarkMode ? '#52525b' : '#9ca3af'} fontSize={11} />
+                    <YAxis yAxisId="left" stroke={isDarkMode ? '#52525b' : '#9ca3af'} fontSize={11} unit="억" />
+                    <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} unit="억" />
+                    <Tooltip content={<HybridTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar yAxisId="left" dataKey="매출액(억)" fill={isDarkMode ? '#27272a' : '#e5e7eb'} radius={[4, 4, 0, 0]} />
+                    <Line yAxisId="left" type="monotone" dataKey="당기순이익(억)" stroke="#3b82f6" strokeWidth={2} />
+                    <Line yAxisId="right" type="monotone" dataKey="시가총액(억)" stroke="#10b981" strokeWidth={2.5} />
+                    {/* [Gemini 핵심] 진흥원 수혜 시점 자동 교차 마커 */}
+                    {hybridChartData.map((entry, idx) =>
+                      entry.hasBenefit ? (
+                        <ReferenceDot
+                          key={idx}
+                          yAxisId="left"
+                          x={entry.name}
+                          y={entry['매출액(억)'] + 10}
+                          r={6}
+                          fill="#10b981"
+                          stroke="#064e3b"
+                          strokeWidth={2}
+                        />
+                      ) : null
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
         {(activeTab === 'marketCap' || activeTab === 'earnings' || activeTab === 'revenue' || activeTab === 'employees') && (
           <div className={`p-6 rounded-lg border ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'

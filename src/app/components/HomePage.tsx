@@ -1,9 +1,10 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Company } from '../data/companies';
+import CompanyDetail from './CompanyDetail';
 import { RankingTable } from './RankingTable';
 import { CompanyTreemap } from './CompanyTreemap';
 import { EditCompanyModal } from './EditCompanyModal';
-import { companies as initialCompanies, Company } from '../data/companies';
-import { Search, Pencil, Download, Plus, Image } from 'lucide-react';
+import { Search, Download, Plus, Image } from 'lucide-react';
 import domtoimage from 'dom-to-image-more';
 
 type ViewMode = 'ranking' | 'treemap';
@@ -16,7 +17,20 @@ interface HomePageProps {
 }
 
 export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
-  const [companies, setCompanies] = useState(initialCompanies);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // [Gemini 수정] useCompanyData hook 대신 톰캣 서버에서 통합 중첩 데이터를 직접 패치
+  useEffect(() => {
+    fetch('http://localhost:8080/webserver/api/companies')
+      .then(res => res.json())
+      .then(data => { setCompanies(data); setLoading(false); })
+      .catch(err => { console.error("통신 실패", err); setLoading(false); });
+  }, []);
+
+  // [Gemini 수정] 선택된 기업을 HomePage 내부에서 관리하여 CompanyDetail을 직접 렌더링
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | undefined>(undefined);
   const treemapRef = useRef<HTMLDivElement>(null);
@@ -28,6 +42,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
   const [metric, setMetric] = useState<Metric>('marketCap');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // cities, categories는 fetch된 데이터에서 직접 파생
   const cities = useMemo(() => [...new Set(companies.map(c => c.city))].sort(), [companies]);
   const categories = useMemo(() => [...new Set(companies.map(c => c.category))].sort(), [companies]);
 
@@ -53,7 +68,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
     }
 
     return filtered.sort((a, b) => b[metric] - a[metric]);
-  }, [filterMode, selectedCity, selectedCategory, selectedListingStatus, metric, searchQuery]);
+  }, [companies, filterMode, selectedCity, selectedCategory, selectedListingStatus, metric, searchQuery]);
 
   const navItems = viewMode === 'ranking'
     ? [
@@ -91,7 +106,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
       return total.toLocaleString() + '명';
     }
 
-    // Handle negative values
     if (total < 0) {
       const absTotal = Math.abs(total);
       if (absTotal >= 1e12) return `-${(absTotal / 1e12).toFixed(2)}조원`;
@@ -173,7 +187,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
         alert('트리맵 이미지가 클립보드에 복사되었습니다!');
       } catch (err) {
         console.error('클립보드 복사 실패:', err);
-        // Fallback: download as file
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -187,6 +200,20 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
       alert('이미지 생성에 실패했습니다.');
     }
   };
+
+  // [Gemini 수정] 로딩 중이면 로딩 화면 표시
+  if (loading) return <div className="p-10 text-white font-mono animate-pulse">Loading Web Dashboard...</div>;
+
+  // [Gemini 수정] 기업이 선택됐을 때 CompanyDetail을 직접 렌더링 (라우터 없이)
+  if (selectedCompany) {
+    return (
+      <CompanyDetail
+        company={selectedCompany}
+        onBack={() => setSelectedCompany(null)}
+        isDarkMode={isDarkMode}
+      />
+    );
+  }
 
   return (
     <>
@@ -505,6 +532,8 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
               setEditingCompany(company);
               setShowEditModal(true);
             }}
+            // [Gemini 수정] 기업 클릭 시 selectedCompany 상태로 전환 (라우터 대신)
+            // onSelect={(company) => setSelectedCompany(company)}
           />
         ) : (
           <div>
@@ -522,7 +551,12 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
               </button>
             </div>
             <div ref={treemapRef} className="h-[600px]">
-              <CompanyTreemap companies={filteredAndSortedCompanies} metric={metric} />
+              <CompanyTreemap
+                companies={filteredAndSortedCompanies}
+                metric={metric}
+                // [Gemini 수정] 트리맵에서도 기업 선택 가능하도록
+                // onSelect={(company) => setSelectedCompany(company)}
+              />
             </div>
           </div>
         )}
@@ -542,3 +576,4 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
     </>
   );
 }
+export default HomePage;

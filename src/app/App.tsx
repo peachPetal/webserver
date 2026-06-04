@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router';
-import { HomePage } from './components/HomePage';
-import { CompanyDetail } from './components/CompanyDetail';
+import HomePage  from './components/HomePage';
+import CompanyDetail from './components/CompanyDetail'; // 중괄호 { }를 반드시 제거해야 합니다.
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { Sun, Moon, User, Shield } from 'lucide-react';
 
