@@ -325,9 +325,10 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                           fill="transparent"
                           stroke="transparent"
                           label={(props: any) => {
-                            const { cx, cy } = props;
+                            const xVal = props.x ?? props.cx;
+                            const yVal = props.y ?? props.cy;
                             return (
-                              <text x={cx} y={cy} dy={6} textAnchor="middle" fontSize={18}>
+                              <text x={xVal} y={yVal} dy={6} textAnchor="middle" fontSize={18}>
                                 🎯
                               </text>
                             );
