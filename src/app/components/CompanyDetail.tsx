@@ -20,6 +20,34 @@ import {
   Label,
 } from 'recharts';
 
+const formatEok = (value: number) => {
+  if (value < 0) {
+    const absValue = Math.abs(value);
+    if (absValue >= 10000) {
+      const jo = Math.floor(absValue / 10000);
+      const eok = absValue % 10000;
+      return eok > 0 ? `-${jo}조 ${eok.toLocaleString()}억원` : `-${jo}조원`;
+    }
+    return `-${absValue.toLocaleString()}억원`;
+  }
+  if (value >= 10000) {
+    const jo = Math.floor(value / 10000);
+    const eok = value % 10000;
+    return eok > 0 ? `${jo}조 ${eok.toLocaleString()}억원` : `${jo}조원`;
+  }
+  return `${value.toLocaleString()}억원`;
+};
+
+const formatEokTick = (value: number) => {
+  const absValue = Math.abs(value);
+  const sign = value < 0 ? '-' : '';
+  if (absValue >= 10000) {
+    const jo = absValue / 10000;
+    return `${sign}${jo.toFixed(jo % 1 === 0 ? 0 : 1)}조`;
+  }
+  return `${sign}${absValue.toLocaleString()}억`;
+};
+
 interface CompanyDetailProps {
   isDarkMode: boolean;
 }
@@ -152,9 +180,14 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
           isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
         }`}>
           <p className="font-bold mb-1">{label}</p>
-          {payload.map((p: any) => (
-            <p key={p.name} style={{ color: p.color }}>{p.name}: {p.value?.toLocaleString()}억</p>
-          ))}
+          {payload.map((p: any) => {
+            const displayName = p.name.replace('(억)', '');
+            return (
+              <p key={p.name} style={{ color: p.color }}>
+                {displayName}: {p.value !== undefined ? formatEok(p.value) : '-'}
+              </p>
+            );
+          })}
           {entry?.hasBenefit && (
             <p className="text-green-400 mt-1 pt-1 border-t border-gray-600">
               🎯 {entry.benefitName}
@@ -307,8 +340,19 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                   <ComposedChart data={hybridChartData}>
                     <CartesianGrid stroke={isDarkMode ? '#1f1f23' : '#e5e7eb'} />
                     <XAxis dataKey="name" stroke={isDarkMode ? '#52525b' : '#9ca3af'} fontSize={11} />
-                    <YAxis yAxisId="left" stroke={isDarkMode ? '#52525b' : '#9ca3af'} fontSize={11} unit="억" />
-                    <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} unit="억" />
+                    <YAxis
+                      yAxisId="left"
+                      stroke={isDarkMode ? '#52525b' : '#9ca3af'}
+                      fontSize={11}
+                      tickFormatter={formatEokTick}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#10b981"
+                      fontSize={11}
+                      tickFormatter={formatEokTick}
+                    />
                     <Tooltip content={<HybridTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Bar yAxisId="left" dataKey="매출액(억)" fill={isDarkMode ? '#27272a' : '#e5e7eb'} radius={[4, 4, 0, 0]} />
