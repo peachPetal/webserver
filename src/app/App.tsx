@@ -2,13 +2,10 @@ import { useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router';
 import HomePage  from './components/HomePage';
 import CompanyDetail from './components/CompanyDetail'; // 중괄호 { }를 반드시 제거해야 합니다.
-import { AdminLoginModal } from './components/AdminLoginModal';
-import { Sun, Moon, User, Shield } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 
 export default function App() {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
-  const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
-  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
   return (
     <BrowserRouter>
@@ -34,44 +31,17 @@ export default function App() {
                 >
                   {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 </button>
-
-                {/* Admin/User Toggle */}
-                <button
-                  onClick={() => {
-                    if (isAdminMode) {
-                      setIsAdminMode(false);
-                    } else {
-                      setShowLoginModal(true);
-                    }
-                  }}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    isAdminMode
-                      ? 'bg-blue-600 text-white'
-                      : isDarkMode
-                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
-                >
-                  {isAdminMode ? <Shield className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                  <span>{isAdminMode ? '관리자' : '사용자'}</span>
-                </button>
               </div>
             </div>
           </div>
         </header>
 
         <Routes>
-          <Route path="/" element={<HomePage isDarkMode={isDarkMode} isAdminMode={isAdminMode} />} />
+          <Route path="/" element={<HomePage isDarkMode={isDarkMode} isAdminMode={false} />} />
           <Route path="/company/:id" element={<CompanyDetail isDarkMode={isDarkMode} />} />
         </Routes>
-
-        <AdminLoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onLogin={() => setIsAdminMode(true)}
-          isDarkMode={isDarkMode}
-        />
       </div>
     </BrowserRouter>
   );
 }
+

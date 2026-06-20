@@ -1,6 +1,7 @@
 import { ArrowUpDown, Pencil } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Company } from '../data/companies';
+import CompanyLogo from './CompanyLogo';
 
 // interface Company {
 //   id: number;
@@ -25,6 +26,13 @@ interface RankingTableProps {
 export function RankingTable({ companies, metric, isDarkMode = false, isAdminMode = false, onEdit }: RankingTableProps) {
   const navigate = useNavigate();
   const formatCurrency = (value: number) => {
+    if (value < 0) {
+      const absValue = Math.abs(value);
+      if (absValue >= 1e12) return `-${(absValue / 1e12).toFixed(2)}조원`;
+      if (absValue >= 1e8) return `-${(absValue / 1e8).toFixed(0)}억원`;
+      if (absValue >= 1e4) return `-${(absValue / 1e4).toFixed(0)}만원`;
+      return `-${absValue.toLocaleString()}원`;
+    }
     if (value >= 1e12) return `${(value / 1e12).toFixed(2)}조원`;
     if (value >= 1e8) return `${(value / 1e8).toFixed(0)}억원`;
     if (value >= 1e4) return `${(value / 1e4).toFixed(0)}만원`;
@@ -91,7 +99,10 @@ export function RankingTable({ companies, metric, isDarkMode = false, isAdminMod
                 className={`px-6 py-4 text-sm cursor-pointer ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
                 onClick={() => navigate(`/company/${company.id}`)}
               >
-                {company.name}
+                <div className="flex items-center gap-3">
+                  <CompanyLogo name={company.name} className="w-8 h-8 flex-shrink-0" />
+                  <span>{company.name}</span>
+                </div>
               </td>
               <td
                 className={`px-6 py-4 text-sm cursor-pointer ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}

@@ -1,6 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useParams, useNavigate } from 'react-router';
 import { Company } from '../data/companies';
+import { useCompanyData } from '../hooks/useCompanyData';
 import { ArrowLeft, Building2 } from 'lucide-react';
+import CompanyLogo from './CompanyLogo';
 import {
   ComposedChart,
   Line,
@@ -16,27 +19,27 @@ import {
   Area,
 } from 'recharts';
 
-// [Gemini 수정] useParams/useNavigate 라우터 방식 대신 props로 company와 onBack을 받는 방식으로 변경
 interface CompanyDetailProps {
-  company: Company;
-  onBack: () => void;
   isDarkMode: boolean;
 }
 
-type TabType = 'hybrid' | 'marketCap' | 'earnings' | 'revenue' | 'employees' | 'support' | 'financial';
+type TabType = 'hybrid' | 'marketCap' | 'earnings' | 'revenue' | 'support' | 'financial';
 
-interface SupportProgram {
-  date: string;
-  name: string;
-  amount: number;
-}
+export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { companies, loading } = useCompanyData();
 
-export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDetailProps) {
+  const company = useMemo(() => {
+    if (!id || !companies) return null;
+    return companies.find(c => c.id === parseInt(id, 10)) || null;
+  }, [id, companies]);
+
   const [activeTab, setActiveTab] = useState<TabType>('hybrid');
 
   // [Gemini 수정] financialHistory + benefits 실제 데이터 기반 하이브리드 차트 데이터 생성
   const hybridChartData = useMemo(() => {
-    if (!company.financialHistory) return [];
+    if (!company || !company.financialHistory) return [];
     return [...company.financialHistory]
       .sort((a, b) => (a.year + a.month).localeCompare(b.year + b.month))
       .map((hist) => {
@@ -71,34 +74,20 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
     return value.toLocaleString();
   };
 
-  const mockSupportPrograms: SupportProgram[] = company.benefits?.map(b => ({
-    date: `${b.year}-${b.month}`,
-    name: b.programName,
-    amount: b.amount ?? 0,
-  })) ?? [
-    { date: '2024-02', name: '강원바이오 혁신성장 지원사업', amount: 500000000 },
-    { date: '2024-05', name: 'R&D 세액공제', amount: 300000000 },
-    { date: '2024-09', name: '수출확대 지원금', amount: 250000000 },
-  ];
-
-  const generateChartData = (metric: 'marketCap' | 'earnings' | 'revenue' | 'employees') => {
-    const baseValue = company[metric];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    return months.map((month, index) => {
-      const progress = (index + 1) / 12;
-      const variance = 0.85 + (progress * 0.15);
-      const support = mockSupportPrograms.find(p => p.date === `2024-${String(index + 1).padStart(2, '0')}`);
-
-      return {
-        month,
-        date: `2024-${String(index + 1).padStart(2, '0')}`,
-        value: baseValue * variance,
-        support: support?.name,
-        supportAmount: support?.amount,
-        key: `${metric}-${index}`,
-      };
-    });
+  const generateChartData = (metric: 'marketCap' | 'earnings' | 'revenue') => {
+    if (!company || !company.financialHistory) return [];
+    return [...company.financialHistory]
+      .sort((a, b) => (a.year + a.month).localeCompare(b.year + b.month))
+      .map((hist, index) => {
+        const benefit = company.benefits?.find(b => b.year === hist.year && b.month === hist.month);
+        return {
+          month: `${hist.year}.${hist.month}`,
+          value: hist[metric],
+          support: benefit ? benefit.programName : undefined,
+          supportAmount: benefit ? benefit.amount : undefined,
+          key: `${metric}-${index}`,
+        };
+      });
   };
 
   const tabs = [
@@ -106,7 +95,6 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
     { id: 'marketCap' as TabType, label: '시가총액' },
     { id: 'earnings' as TabType, label: '영업이익' },
     { id: 'revenue' as TabType, label: '매출액' },
-    { id: 'employees' as TabType, label: '직원수' },
     { id: 'support' as TabType, label: '지원사업' },
     { id: 'financial' as TabType, label: '재무정보' },
   ];
@@ -116,7 +104,6 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
       case 'marketCap': return '#3b82f6';
       case 'earnings': return '#8b5cf6';
       case 'revenue': return '#10b981';
-      case 'employees': return '#f59e0b';
       default: return '#3b82f6';
     }
   };
@@ -126,7 +113,6 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
       case 'marketCap': return formatCurrency(company.marketCap);
       case 'earnings': return formatCurrency(company.earnings);
       case 'revenue': return formatCurrency(company.revenue);
-      case 'employees': return formatNumber(company.employees);
       default: return '';
     }
   };
@@ -139,18 +125,16 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
           isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         }`}>
           <p className={`text-sm mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {data.month} 2024
+            {data.month}
           </p>
           <p className={`text-sm ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
-            {activeTab === 'employees' ? formatNumber(data.value) : formatCurrency(data.value)}
+            {formatCurrency(data.value)}
           </p>
           {data.support && (
             <p className={`text-xs mt-2 pt-2 border-t ${
               isDarkMode ? 'text-green-400 border-gray-600' : 'text-green-600 border-gray-200'
             }`}>
               🎯 {data.support}
-              <br />
-              <span className="text-xs">{formatCurrency(data.supportAmount)}</span>
             </p>
           )}
         </div>
@@ -181,17 +165,37 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
     return null;
   };
 
-  // companies 배열이 없으므로 rank는 간략 처리
-  const rank = '-';
+  // companies 배열을 정렬하여 순위 계산
+  const rank = useMemo(() => {
+    if (!companies || !company) return '-';
+    const sorted = [...companies].sort((a, b) => b.marketCap - a.marketCap);
+    const index = sorted.findIndex(c => c.id === company.id);
+    return index !== -1 ? index + 1 : '-';
+  }, [companies, company]);
+
+  if (loading) {
+    return <div className="p-10 text-white font-mono animate-pulse">Loading Company Details...</div>;
+  }
+
+  if (!company) {
+    return (
+      <div className={`min-h-screen p-10 text-center ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <h2 className="text-xl font-bold mb-4">기업 정보를 찾을 수 없습니다.</h2>
+        <button onClick={() => navigate('/')} className="px-4 py-2 bg-blue-600 text-white rounded">
+          목록으로 돌아가기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
       <div className={`border-b ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
         <div className="max-w-7xl mx-auto px-6 py-4">
-          {/* [Gemini 수정] navigate('/') 대신 onBack() 호출 */}
+          {/* 목록으로 돌아가기 라우팅 처리 */}
           <button
-            onClick={onBack}
+            onClick={() => navigate('/')}
             className={`flex items-center gap-2 text-sm mb-4 transition-colors ${
               isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
             }`}
@@ -202,11 +206,7 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
 
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4 mb-4">
-              <div className={`w-20 h-20 rounded-lg flex items-center justify-center text-3xl ${
-                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
-                {company.name.charAt(0)}
-              </div>
+              <CompanyLogo name={company.name} className="w-20 h-20" />
               <div>
                 <h1 className={`text-3xl mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   {company.name}
@@ -335,7 +335,7 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
           </div>
         )}
 
-        {(activeTab === 'marketCap' || activeTab === 'earnings' || activeTab === 'revenue' || activeTab === 'employees') && (
+        {(activeTab === 'marketCap' || activeTab === 'earnings' || activeTab === 'revenue') && (
           <div className={`p-6 rounded-lg border ${
             isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
           }`}>
@@ -349,7 +349,7 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
             </div>
             <ResponsiveContainer width="100%" height={400}>
               <AreaChart
-                data={generateChartData(activeTab as 'marketCap' | 'earnings' | 'revenue' | 'employees')}
+                data={generateChartData(activeTab as 'marketCap' | 'earnings' | 'revenue')}
                 isAnimationActive={false}
               >
                 <defs>
@@ -368,7 +368,6 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
                   stroke={isDarkMode ? '#9ca3af' : '#6b7280'}
                   style={{ fontSize: '12px' }}
                   tickFormatter={(value) => {
-                    if (activeTab === 'employees') return formatNumber(value);
                     if (value < 0) {
                       const absValue = Math.abs(value);
                       if (absValue >= 1e12) return `-${(absValue / 1e12).toFixed(1)}조`;
@@ -390,7 +389,7 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
                   fill={`url(#color${activeTab})`}
                   isAnimationActive={false}
                 />
-                {generateChartData(activeTab as 'marketCap' | 'earnings' | 'revenue' | 'employees').map((point) =>
+                {generateChartData(activeTab as 'marketCap' | 'earnings' | 'revenue').map((point) =>
                   point.support ? (
                     <ReferenceDot
                       key={point.key}
@@ -416,28 +415,33 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
               지원사업 수혜 내역
             </h2>
             <div className="space-y-4">
-              {mockSupportPrograms.map((program, index) => (
-                <div
-                  key={index}
-                  className={`p-4 rounded-lg border ${
-                    isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className={`text-base mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {program.name}
-                      </h3>
-                      <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        {program.date}
-                      </p>
-                    </div>
-                    <div className={`text-lg ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>
-                      {formatCurrency(program.amount)}
+              {!company.benefits || company.benefits.length === 0 ? (
+                <p className={`text-sm text-center py-10 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  수혜 내역 데이터가 없습니다.
+                </p>
+              ) : (
+                company.benefits.map((program, index) => (
+                  <div
+                    key={index}
+                    className={`p-4 rounded-lg border ${
+                      isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className={`text-base mb-2 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {program.programName}
+                        </h3>
+                        <div className={`text-xs space-y-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                          <p>📅 지원 시기: {program.year}년 {program.month}월</p>
+                          <p>🏢 지원 기관: {program.agencyName || '-'}</p>
+                          <p>💡 지원 분야: {program.supportType || '-'}</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
@@ -479,7 +483,9 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
                   영업이익률
                 </p>
                 <p className={`text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {((company.earnings / company.revenue) * 100).toFixed(2)}%
+                  {company.revenue && company.revenue !== 0
+                    ? ((company.earnings / company.revenue) * 100).toFixed(2)
+                    : '0.00'}%
                 </p>
               </div>
               <div>
@@ -495,7 +501,9 @@ export default function CompanyDetail({ company, onBack, isDarkMode }: CompanyDe
                   1인당 매출액
                 </p>
                 <p className={`text-xl ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {formatCurrency(company.revenue / company.employees)}
+                  {company.employees && company.employees !== 0
+                    ? formatCurrency(company.revenue / company.employees)
+                    : '0원'}
                 </p>
               </div>
               <div>

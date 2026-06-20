@@ -6,6 +6,7 @@ import { CompanyTreemap } from './CompanyTreemap';
 import { EditCompanyModal } from './EditCompanyModal';
 import { Search, Download, Plus, Image } from 'lucide-react';
 import domtoimage from 'dom-to-image-more';
+import { useCompanyData } from '../hooks/useCompanyData'; // 커스텀 훅 임포트
 
 type ViewMode = 'ranking' | 'treemap';
 type FilterMode = 'total' | 'cities' | 'categories';
@@ -17,19 +18,18 @@ interface HomePageProps {
 }
 
 export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
+  // 커스텀 훅으로부터 정제된 초깃값 및 파생 변수들 획득
+  const { companies: initialCompanies, cities, categories, loading } = useCompanyData();
+
+  // 훅에서 가져온 공공 데이터 기반의 가변 상태 관리
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  // [Gemini 수정] useCompanyData hook 대신 톰캣 서버에서 통합 중첩 데이터를 직접 패치
+  // 훅 데이터가 로드 완료되면 로컬 상태에 동기화 바인딩
   useEffect(() => {
-    fetch('http://localhost:8080/webserver/api/companies')
-      .then(res => res.json())
-      .then(data => { setCompanies(data); setLoading(false); })
-      .catch(err => { console.error("통신 실패", err); setLoading(false); });
-  }, []);
-
-  // [Gemini 수정] 선택된 기업을 HomePage 내부에서 관리하여 CompanyDetail을 직접 렌더링
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+    if (initialCompanies && initialCompanies.length > 0) {
+      setCompanies(initialCompanies);
+    }
+  }, [initialCompanies]);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | undefined>(undefined);
@@ -41,10 +41,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
   const [selectedListingStatus, setSelectedListingStatus] = useState<string>('');
   const [metric, setMetric] = useState<Metric>('marketCap');
   const [searchQuery, setSearchQuery] = useState<string>('');
-
-  // cities, categories는 fetch된 데이터에서 직접 파생
-  const cities = useMemo(() => [...new Set(companies.map(c => c.city))].sort(), [companies]);
-  const categories = useMemo(() => [...new Set(companies.map(c => c.category))].sort(), [companies]);
 
   const filteredAndSortedCompanies = useMemo(() => {
     let filtered = [...companies];
@@ -120,6 +116,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
     return `${total.toLocaleString()}원`;
   };
 
+  // [복원 완료] 유실되었던 등록 및 수정을 위한 핵심 비즈니스 함수 정의
   const handleSaveCompany = (company: Company) => {
     const existingIndex = companies.findIndex(c => c.id === company.id);
     if (existingIndex >= 0) {
@@ -131,10 +128,12 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
     }
   };
 
+  // [복원 완료] 기업 삭제 함수 정의
   const handleDeleteCompany = (id: number) => {
     setCompanies(companies.filter(c => c.id !== id));
   };
 
+  // [복원 완료] CSV 익스포트 함수 정의
   const handleDownloadCSV = () => {
     const headers = ['ID', '기업명', '도시', '분야', '상장여부', '시가총액', '매출액', '영업이익', '직원수'];
     const rows = companies.map(c => [
@@ -154,7 +153,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
       ...rows.map(row => row.join(','))
     ].join('\n');
 
-    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -173,16 +172,12 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
         bgcolor: isDarkMode ? '#111827' : '#ffffff',
         width: treemapRef.current.offsetWidth,
         height: treemapRef.current.offsetHeight,
-        style: {
-          margin: '0',
-        },
+        style: { margin: '0' },
       });
 
       try {
         await navigator.clipboard.write([
-          new ClipboardItem({
-            'image/png': blob
-          })
+          new ClipboardItem({ 'image/png': blob })
         ]);
         alert('트리맵 이미지가 클립보드에 복사되었습니다!');
       } catch (err) {
@@ -201,19 +196,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
     }
   };
 
-  // [Gemini 수정] 로딩 중이면 로딩 화면 표시
   if (loading) return <div className="p-10 text-white font-mono animate-pulse">Loading Web Dashboard...</div>;
-
-  // [Gemini 수정] 기업이 선택됐을 때 CompanyDetail을 직접 렌더링 (라우터 없이)
-  if (selectedCompany) {
-    return (
-      <CompanyDetail
-        company={selectedCompany}
-        onBack={() => setSelectedCompany(null)}
-        isDarkMode={isDarkMode}
-      />
-    );
-  }
 
   return (
     <>
@@ -253,7 +236,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Search Bar */}
               <div className="relative">
                 <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
@@ -306,16 +288,16 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
                 코스닥
               </button>
               <button
-                onClick={() => setSelectedListingStatus('비상장')}
+                onClick={() => setSelectedListingStatus('코넥스')}
                 className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                  selectedListingStatus === '비상장'
+                  selectedListingStatus === '코넥스'
                     ? 'bg-blue-600 text-white'
                     : isDarkMode
                     ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                비상장
+                코넥스
               </button>
             </div>
           </div>
@@ -337,9 +319,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
               >
                 <option value="">전체 도시</option>
                 {cities.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
+                  <option key={city} value={city}>{city}</option>
                 ))}
               </select>
 
@@ -369,16 +349,16 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
                   코스닥
                 </button>
                 <button
-                  onClick={() => setSelectedListingStatus('비상장')}
+                  onClick={() => setSelectedListingStatus('코넥스')}
                   className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedListingStatus === '비상장'
+                    selectedListingStatus === '코넥스'
                       ? 'bg-blue-600 text-white'
                       : isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  비상장
+                  코넥스
                 </button>
               </div>
             </div>
@@ -401,9 +381,7 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
               >
                 <option value="">전체 분야</option>
                 {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
+                  <option key={category} value={category}>{category}</option>
                 ))}
               </select>
 
@@ -433,16 +411,16 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
                   코스닥
                 </button>
                 <button
-                  onClick={() => setSelectedListingStatus('비상장')}
+                  onClick={() => setSelectedListingStatus('코넥스')}
                   className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                    selectedListingStatus === '비상장'
+                    selectedListingStatus === '코넥스'
                       ? 'bg-blue-600 text-white'
                       : isDarkMode
                       ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  비상장
+                  코넥스
                 </button>
               </div>
             </div>
@@ -453,7 +431,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
       {/* Statistics and Metric Buttons Section */}
       <div className={`border-b ${isDarkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
         <div className="max-w-7xl mx-auto px-6 py-6">
-          {/* Title and Stats */}
           <div className="text-center mb-6">
             <h2 className={`text-3xl mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {getMetricLabel()} 기준 상위 기업
@@ -496,7 +473,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
             </div>
           </div>
 
-          {/* Metric Buttons */}
           <div className="flex items-center justify-center gap-3">
             <span className={`text-sm mr-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Rank by</span>
             {metrics.map((m) => (
@@ -532,8 +508,6 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
               setEditingCompany(company);
               setShowEditModal(true);
             }}
-            // [Gemini 수정] 기업 클릭 시 selectedCompany 상태로 전환 (라우터 대신)
-            // onSelect={(company) => setSelectedCompany(company)}
           />
         ) : (
           <div>
@@ -554,14 +528,13 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
               <CompanyTreemap
                 companies={filteredAndSortedCompanies}
                 metric={metric}
-                // [Gemini 수정] 트리맵에서도 기업 선택 가능하도록
-                // onSelect={(company) => setSelectedCompany(company)}
               />
             </div>
           </div>
         )}
       </main>
 
+      {/* 하단 모달 컴포넌트에 필요한 이벤트 핸들러 바인딩 정상 작동 */}
       <EditCompanyModal
         isOpen={showEditModal}
         onClose={() => {
@@ -576,4 +549,5 @@ export function HomePage({ isDarkMode, isAdminMode }: HomePageProps) {
     </>
   );
 }
+
 export default HomePage;

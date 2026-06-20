@@ -42,6 +42,13 @@ export function CompanyTreemap({ companies, metric }: CompanyTreemapProps) {
 
     const formatValue = (value: number) => {
       if (metric === 'employees') return value.toLocaleString() + '명';
+      if (value < 0) {
+        const absValue = Math.abs(value);
+        if (absValue >= 1e12) return `-${(absValue / 1e12).toFixed(1)}조`;
+        if (absValue >= 1e8) return `-${(absValue / 1e8).toFixed(0)}억`;
+        if (absValue >= 1e4) return `-${(absValue / 1e4).toFixed(0)}만`;
+        return `-${absValue.toLocaleString()}`;
+      }
       if (value >= 1e12) return `${(value / 1e12).toFixed(1)}조`;
       if (value >= 1e8) return `${(value / 1e8).toFixed(0)}억`;
       if (value >= 1e4) return `${(value / 1e4).toFixed(0)}만`;
@@ -95,6 +102,13 @@ export function CompanyTreemap({ companies, metric }: CompanyTreemapProps) {
       const data = payload[0].payload;
       const formatValue = (value: number) => {
         if (metric === 'employees') return value.toLocaleString() + '명';
+        if (value < 0) {
+          const absValue = Math.abs(value);
+          if (absValue >= 1e12) return `-${(absValue / 1e12).toFixed(2)}조원`;
+          if (absValue >= 1e8) return `-${(absValue / 1e8).toFixed(0)}억원`;
+          if (absValue >= 1e4) return `-${(absValue / 1e4).toFixed(0)}만원`;
+          return `-${absValue.toLocaleString()}원`;
+        }
         if (value >= 1e12) return `${(value / 1e12).toFixed(2)}조원`;
         if (value >= 1e8) return `${(value / 1e8).toFixed(0)}억원`;
         if (value >= 1e4) return `${(value / 1e4).toFixed(0)}만원`;
