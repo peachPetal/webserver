@@ -326,7 +326,7 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                           fill="transparent"
                           stroke="transparent"
                         >
-                          <Label value="🎯" position="top" offset={5} style={{ fontSize: 18 }} />
+                          <Label value="🎯" position="center" style={{ fontSize: 18 }} />
                         </ReferenceDot>
                       ) : null
                     )}
@@ -401,7 +401,7 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                       fill="transparent"
                       stroke="transparent"
                     >
-                      <Label value="🎯" position="top" offset={5} style={{ fontSize: 18 }} />
+                      <Label value="🎯" position="center" style={{ fontSize: 18 }} />
                     </ReferenceDot>
                   ) : null
                 )}
