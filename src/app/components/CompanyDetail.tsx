@@ -320,7 +320,7 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                           key={idx}
                           yAxisId="left"
                           x={entry.name}
-                          y={entry['매출액(억)'] + 10}
+                          y={entry['매출액(억)']}
                           r={10}
                           fill="transparent"
                           stroke="transparent"
@@ -328,7 +328,7 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                             const xVal = props.x ?? props.cx;
                             const yVal = props.y ?? props.cy;
                             return (
-                              <text x={xVal} y={yVal} dy={6} textAnchor="middle" fontSize={18}>
+                              <text x={xVal} y={yVal} dy={-10} textAnchor="middle" fontSize={18}>
                                 🎯
                               </text>
                             );
@@ -403,10 +403,18 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                       key={point.key}
                       x={point.month}
                       y={point.value}
-                      r={6}
-                      fill="#10b981"
-                      stroke="#fff"
-                      strokeWidth={2}
+                      r={10}
+                      fill="transparent"
+                      stroke="transparent"
+                      label={(props: any) => {
+                        const xVal = props.x ?? props.cx;
+                        const yVal = props.y ?? props.cy;
+                        return (
+                          <text x={xVal} y={yVal} dy={-10} textAnchor="middle" fontSize={18}>
+                            🎯
+                          </text>
+                        );
+                      }}
                     />
                   ) : null
                 )}
