@@ -321,10 +321,17 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                           yAxisId="left"
                           x={entry.name}
                           y={entry['매출액(억)'] + 10}
-                          r={6}
-                          fill="#10b981"
-                          stroke="#064e3b"
-                          strokeWidth={2}
+                          r={10}
+                          fill="transparent"
+                          stroke="transparent"
+                          label={(props: any) => {
+                            const { cx, cy } = props;
+                            return (
+                              <text x={cx} y={cy} dy={6} textAnchor="middle" fontSize={18}>
+                                🎯
+                              </text>
+                            );
+                          }}
                         />
                       ) : null
                     )}
