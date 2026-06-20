@@ -17,6 +17,7 @@ import {
   ReferenceDot,
   AreaChart,
   Area,
+  Label,
 } from 'recharts';
 
 interface CompanyDetailProps {
@@ -321,19 +322,12 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                           yAxisId="left"
                           x={entry.name}
                           y={entry['매출액(억)']}
-                          r={10}
+                          r={12}
                           fill="transparent"
                           stroke="transparent"
-                          label={(props: any) => {
-                            const xVal = props.x ?? props.cx;
-                            const yVal = props.y ?? props.cy;
-                            return (
-                              <text x={xVal} y={yVal} dy={-10} textAnchor="middle" fontSize={18}>
-                                🎯
-                              </text>
-                            );
-                          }}
-                        />
+                        >
+                          <Label value="🎯" position="top" offset={5} style={{ fontSize: 18 }} />
+                        </ReferenceDot>
                       ) : null
                     )}
                   </ComposedChart>
@@ -403,19 +397,12 @@ export default function CompanyDetail({ isDarkMode }: CompanyDetailProps) {
                       key={point.key}
                       x={point.month}
                       y={point.value}
-                      r={10}
+                      r={12}
                       fill="transparent"
                       stroke="transparent"
-                      label={(props: any) => {
-                        const xVal = props.x ?? props.cx;
-                        const yVal = props.y ?? props.cy;
-                        return (
-                          <text x={xVal} y={yVal} dy={-10} textAnchor="middle" fontSize={18}>
-                            🎯
-                          </text>
-                        );
-                      }}
-                    />
+                    >
+                      <Label value="🎯" position="top" offset={5} style={{ fontSize: 18 }} />
+                    </ReferenceDot>
                   ) : null
                 )}
               </AreaChart>
